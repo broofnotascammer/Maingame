@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dodge the Cars!</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <h1>DODGE THE CARS!</h1>
+        <canvas id="gameCanvas" width="500" height="600"></canvas>
+
+        <div class="game-info">
+            <div class="score-display">
+                Score: <span id="scoreValue">0</span>
+            </div>
+            <div class="high-scores-container">
+                <h2>High Scores</h2>
+                <ul id="highScoresList">
+                    <li>Loading...</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="game-over-screen">
+            <h2>GAME OVER!</h2>
+            <p>Your Score: <span id="finalScore">0</span></p>
+            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15">
+            <button id="submitScoreBtn">Submit Score</button>
+            <button id="restartGameBtn">Play Again</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
