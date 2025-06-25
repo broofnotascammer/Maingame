@@ -1,6 +1,6 @@
 // --- Configuration & Constants ---
 // IMPORTANT: Replace with your actual Render backend URL!
-const SERVER_URL = 'YOUR_DODGE_CARS_BACKEND_RENDER_URL_HERE'; 
+const SERVER_URL = 'https://cardodge.onrender.com'; 
 const API_URL = `${SERVER_URL}/api/highscores`; // For high scores API
 
 const canvas = document.getElementById('gameCanvas');
