@@ -1,7 +1,7 @@
 // --- Configuration & Constants ---
 // *** IMPORTANT: Replace 'YOUR_DODGE_CARS_BACKEND_RENDER_URL_HERE' with your actual Render backend URL! ***
 // Example: const SERVER_URL = 'https://my-dodge-cars-server.onrender.com';
-const SERVER_URL = 'YOUR_DODGE_CARS_BACKEND_RENDER_URL_HERE'; // <<< Make sure this is YOUR backend URL
+const SERVER_URL = 'https://cardodge.onrender.com'; // <<< Make sure this is YOUR backend URL
 const API_URL = `${SERVER_URL}/api/highscores`;
 
 // Get DOM elements
