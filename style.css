@@ -7,7 +7,7 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    overflow: hidden;
+    overflow-x: hidden; /* Prevents horizontal scrollbar on small screens */
     text-align: center;
 }
 
@@ -18,14 +18,18 @@ body {
     background-color: #34495e;
     border-radius: 10px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-    padding: 20px;
-    position: relative; /* Added for absolute positioning of game over screen */
+    padding: 20px; /* Default padding for larger screens */
+    position: relative;
+    box-sizing: border-box; /* Ensures padding is included in element's total width/height */
+    width: 100%; /* Allow it to take full width of parent on small screens */
+    max-width: 550px; /* Slightly larger than canvas + padding */
 }
 
 h1 {
     color: #f1c40f;
-    font-size: 2em;
-    margin-bottom: 20px;
+    /* Responsive font size: minimum 1.5em, preferred 5% of viewport width, maximum 2.5em */
+    font-size: clamp(1.5em, 5vw, 2.5em);
+    margin: 10px auto 20px; /* Adjusted margin */
 }
 
 canvas {
@@ -34,25 +38,42 @@ canvas {
     display: block;
     margin-bottom: 20px;
     touch-action: none;
+    max-width: 100%; /* Ensures canvas doesn't overflow on very small screens */
+    height: auto; /* Maintain aspect ratio */
 }
 
 .game-info {
     display: flex;
     justify-content: space-around;
-    width: 100%;
-    max-width: 500px;
+    align-items: center;
+    width: 100%; /* Make sure it takes full width of parent */
+    max-width: 500px; /* Matches canvas width */
     margin-bottom: 20px;
+    flex-wrap: wrap; /* Allows items to wrap to the next line if space is limited */
+    gap: 10px; /* Adds space between flex items (score, level, high scores) */
 }
 
-.score-display, .high-scores-container {
+.score-display, .level-display, .high-scores-container {
     background-color: #2c3e50;
-    padding: 10px 20px;
+    padding: 10px; /* Slightly reduced padding for better fit */
     border-radius: 8px;
     box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
+    flex-basis: auto; /* Allows content to determine initial size */
+    min-width: fit-content; /* Prevents content from shrinking too much */
 }
 
 .score-display span {
     color: #e74c3c;
+}
+
+.level-display span {
+    color: #3498db;
+}
+
+.high-scores-container {
+    flex-grow: 1; /* Allows high scores container to take up available space */
+    max-width: 200px; /* Keeps it reasonably sized on larger screens */
+    min-width: 150px; /* Ensures it doesn't get too small */
 }
 
 .high-scores-container h2 {
@@ -78,7 +99,7 @@ canvas {
     border-bottom: none;
 }
 
-/* Game Over Screen */
+/* Game Over Screen (unchanged) */
 .game-over-screen {
     background-color: rgba(44, 62, 80, 0.95);
     position: absolute;
@@ -149,17 +170,17 @@ canvas {
     background-color: #5dade2;
 }
 
-/* NEW: Mobile Controls Styling */
+/* Mobile Controls Styling (unchanged, still shows on max-width: 768px) */
 .mobile-controls {
-    display: none; /* Hidden by default */
+    display: none;
     width: 100%;
-    max-width: 500px; /* Match canvas width */
+    max-width: 500px;
     justify-content: space-around;
     padding: 10px 0;
 }
 
 .control-button {
-    background-color: #8e44ad; /* Purple */
+    background-color: #8e44ad;
     color: white;
     padding: 15px 30px;
     border: none;
@@ -167,48 +188,63 @@ canvas {
     font-family: 'Press Start 2P', cursive;
     font-size: 1.2em;
     cursor: pointer;
-    flex: 1; /* Make buttons take equal space */
+    flex: 1;
     margin: 0 5px;
     transition: background-color 0.2s ease, transform 0.1s ease;
-    user-select: none; /* Prevent text selection on touch */
-    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on iOS */
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .control-button:hover {
     background-color: #9b59b6;
 }
 
-.control-button:active { /* Feedback for touch/click */
+.control-button:active {
     background-color: #6a3287;
     transform: translateY(2px);
 }
 
-/* Media Query: Show mobile controls only on screens up to 768px wide (typical tablet portrait) */
+/* Media Query: Adjustments for smaller screens */
 @media (max-width: 768px) {
     .mobile-controls {
-        display: flex; /* Show flexbox for buttons */
+        display: flex; /* Show buttons */
     }
-
-    /* Adjust game-info for smaller screens if needed */
+    .game-container {
+        padding: 10px; /* Reduce container padding on small screens */
+    }
     .game-info {
-        flex-direction: column;
-        align-items: center;
+        flex-direction: column; /* Stack score, level, high scores */
+        gap: 15px; /* Space between stacked elements */
     }
-    .score-display, .high-scores-container {
-        width: 80%;
-        margin-bottom: 15px;
+    .score-display, .level-display, .high-scores-container {
+        width: 90%; /* Take more width when stacked */
+        max-width: 300px; /* But don't get too wide on tablets */
     }
-
-    /* Optional: Hide canvas-wide touch actions if explicit buttons are preferred */
-    /* canvas {
-        touch-action: manipulation;
-    } */
+    .high-scores-container {
+        margin-top: 5px; /* Small margin from level/score when stacked */
+    }
 }
 
-/* Responsive adjustments for very small screens */
+/* Further adjustments for very small screens (e.g., narrow phones) */
 @media (max-width: 400px) {
     .control-button {
         padding: 10px 15px;
         font-size: 1em;
     }
+}
+
+/* --- Focus/Full Mode CSS --- */
+/* Add this class to your .game-container when you want to hide elements */
+.game-container.focus-mode h1,
+.game-container.focus-mode .game-info {
+    display: none;
+}
+/* Optional: Adjust canvas margin if elements above it are hidden */
+.game-container.focus-mode canvas {
+    margin-top: 0; /* Remove top margin */
+    margin-bottom: 0; /* Remove bottom margin if controls are directly below */
+}
+/* Optional: Center the canvas vertically more if the other elements are gone */
+.game-container.focus-mode {
+    justify-content: center; /* Centers items along the main axis (column) */
 }
