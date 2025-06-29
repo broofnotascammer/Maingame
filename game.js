@@ -1,10 +1,10 @@
 // --- Configuration & Constants ---
 // *** IMPORTANT: Replace 'YOUR_DODGE_CARS_BACKEND_RENDER_URL_HERE' with your actual Render backend URL! ***
-// Example: const SERVER_URL = 'https://my-dodge-cars-server.onrender.com';
 const SERVER_URL = 'https://cardodge.onrender.com'; // <<< Make sure this is YOUR backend URL
 const API_URL = `${SERVER_URL}/api/highscores`;
 
 // Get DOM elements
+const gameContainer = document.querySelector('.game-container'); // Get reference to the main container
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('scoreValue');
@@ -14,10 +14,10 @@ const finalScoreDisplay = document.getElementById('finalScore');
 const playerNameInput = document.getElementById('playerNameInput');
 const submitScoreBtn = document.getElementById('submitScoreBtn');
 const restartGameBtn = document.getElementById('restartGameBtn');
-
-// NEW: Get references to control buttons
 const leftButton = document.getElementById('leftButton');
 const rightButton = document.getElementById('rightButton');
+const levelDisplay = document.getElementById('levelValue');
+
 
 // Game object dimensions
 const PLAYER_WIDTH = 50;
@@ -37,21 +37,39 @@ let cars = [];
 let score = 0;
 let gameOver = false;
 let frame = 0;
-let carSpeed = 5;
-let carSpawnRate = 90;
 
-// NEW: Variables to track continuous movement from buttons
+// Level-related variables
+let currentLevelIndex = 0; // Starts at the first level in the array
+let carSpeed = 0; // Will be set by current level
+let carSpawnRate = 0; // Will be set by current level
+
+// Define your levels here: scoreThreshold determines when to advance to the NEXT level.
+// Ensure levels are sorted by scoreThreshold.
+const levels = [
+    { level: 1, scoreThreshold: 0, carSpeed: 5, carSpawnRate: 90 }, // Initial settings
+    { level: 2, scoreThreshold: 500, carSpeed: 6.5, carSpawnRate: 80 },
+    { level: 3, scoreThreshold: 1500, carSpeed: 8, carSpawnRate: 70 },
+    { level: 4, scoreThreshold: 3000, carSpeed: 9.5, carSpawnRate: 60 },
+    { level: 5, scoreThreshold: 5000, carSpeed: 11, carSpawnRate: 50 },
+    { level: 6, scoreThreshold: 7500, carSpeed: 12.5, carSpawnRate: 40 },
+    { level: 7, scoreThreshold: 10000, carSpeed: 14, carSpawnRate: 30 },
+    { level: 8, scoreThreshold: 13000, carSpeed: 15.5, carSpawnRate: 25 },
+    { level: 9, scoreThreshold: 17000, carSpeed: 17, carSpawnRate: 20 },
+    { level: 10, scoreThreshold: 22000, carSpeed: 18.5, carSpawnRate: 15 },
+    { level: "MAX", scoreThreshold: Infinity, carSpeed: 20, carSpawnRate: 10 } // Final max difficulty
+];
+
 let moveLeft = false;
 let moveRight = false;
 
 
-// --- Socket.IO Setup ---
+// --- Socket.IO Setup (unchanged) ---
 const socket = io(SERVER_URL);
 let otherPlayers = {};
 
 socket.on('connect', () => {
     console.log('Connected to game server!');
-    fetchHighScores();
+    fetchHighScores(); // Fetch high scores on connect
 });
 
 socket.on('disconnect', () => {
@@ -89,7 +107,7 @@ socket.on('highScoresUpdated', (updatedScores) => {
     displayHighScores(updatedScores);
 });
 
-// --- High Score API Interaction ---
+// --- High Score API Interaction (unchanged) ---
 async function fetchHighScores() {
     try {
         const response = await fetch(API_URL);
@@ -141,6 +159,8 @@ function displayHighScores(scores) {
 }
 
 // --- Game Core Logic ---
+
+// Initializes/resets the game state
 function initGame() {
     player.x = canvas.width / 2 - PLAYER_WIDTH / 2;
     player.y = canvas.height - PLAYER_HEIGHT - 10;
@@ -148,19 +168,36 @@ function initGame() {
     score = 0;
     gameOver = false;
     frame = 0;
-    carSpeed = 5;
-    carSpawnRate = 90;
+
+    // Reset and apply initial level settings
+    currentLevelIndex = 0;
+    applyLevelSettings(levels[currentLevelIndex]);
+
     scoreDisplay.textContent = score;
+    // levelDisplay.textContent is updated by applyLevelSettings
+
     gameOverScreen.classList.remove('active');
     playerNameInput.value = '';
-    
-    // NEW: Reset movement flags
+
     moveLeft = false;
     moveRight = false;
+
+    // --- NEW: Activate Focus Mode when game starts ---
+    gameContainer.classList.add('focus-mode');
 
     requestAnimationFrame(gameLoop);
 }
 
+// Function to apply settings from a given level object
+function applyLevelSettings(levelObj) {
+    carSpeed = levelObj.carSpeed;
+    carSpawnRate = levelObj.carSpawnRate;
+    levelDisplay.textContent = levelObj.level; // Update the displayed level
+    console.log(`Advancing to Level ${levelObj.level}! Speed: ${carSpeed}, Spawn Rate: ${carSpawnRate}`);
+}
+
+
+// The main game loop, called repeatedly
 function gameLoop() {
     if (gameOver) return;
 
@@ -183,22 +220,19 @@ function gameLoop() {
 
     frame++;
 
-    if (frame % 500 === 0) {
-        carSpeed += 0.5;
-        if (carSpawnRate > 20) {
-            carSpawnRate -= 5;
-        }
+    // Level progression logic based on score
+    if (currentLevelIndex + 1 < levels.length && score >= levels[currentLevelIndex + 1].scoreThreshold) {
+        currentLevelIndex++; // Move to the next level
+        applyLevelSettings(levels[currentLevelIndex]); // Apply its settings
     }
 
-    // NEW: Apply continuous movement based on button flags
     if (moveLeft) {
-        player.x = Math.max(0, player.x - player.speed * 5); // Use a faster step for continuous movement
+        player.x = Math.max(0, player.x - player.speed * 5);
         socket.emit('playerMoved', { x: player.x, y: player.y });
     } else if (moveRight) {
-        player.x = Math.min(canvas.width - PLAYER_WIDTH, player.x + player.speed * 5); // Use a faster step
+        player.x = Math.min(canvas.width - PLAYER_WIDTH, player.x + player.speed * 5);
         socket.emit('playerMoved', { x: player.x, y: player.y });
     }
-
 
     requestAnimationFrame(gameLoop);
 }
@@ -285,12 +319,14 @@ function endGame() {
     gameOver = true;
     finalScoreDisplay.textContent = score;
     gameOverScreen.classList.add('active');
+
+    // --- NEW: Deactivate Focus Mode when game ends ---
+    gameContainer.classList.remove('focus-mode');
+
     console.log("Game Over! Final Score:", score);
 }
 
-// --- Event Listeners (Keyboard & NEW Mobile Button Controls) ---
-
-// Keyboard controls for desktop (unchanged)
+// --- Event Listeners (Keyboard & Mobile Button Controls - unchanged) ---
 document.addEventListener('keydown', (e) => {
     if (gameOver) return;
     let moved = false;
@@ -307,37 +343,11 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// IMPORTANT: REMOVE or COMMENT OUT the old canvas-wide touch events
-// if you want to rely solely on the new buttons:
-/*
-canvas.addEventListener('touchstart', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    // Your old touch logic here
-});
-canvas.addEventListener('touchmove', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    // Your old touch logic here
-});
-canvas.addEventListener('touchend', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    // Your old touch logic here
-});
-canvas.addEventListener('touchcancel', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    // Your old touch logic here
-});
-*/
-
-// NEW: Mobile Button Touch Controls
 leftButton.addEventListener('touchstart', (e) => {
     if (gameOver) return;
-    e.preventDefault(); // Prevent scrolling/zooming
+    e.preventDefault();
     moveLeft = true;
-    moveRight = false; // Ensure only one direction is active
+    moveRight = false;
 });
 
 leftButton.addEventListener('touchend', (e) => {
@@ -346,7 +356,7 @@ leftButton.addEventListener('touchend', (e) => {
     moveLeft = false;
 });
 
-leftButton.addEventListener('touchcancel', (e) => { // Handle cases where touch might be interrupted
+leftButton.addEventListener('touchcancel', (e) => {
     if (gameOver) return;
     e.preventDefault();
     moveLeft = false;
@@ -354,9 +364,9 @@ leftButton.addEventListener('touchcancel', (e) => { // Handle cases where touch 
 
 rightButton.addEventListener('touchstart', (e) => {
     if (gameOver) return;
-    e.preventDefault(); // Prevent scrolling/zooming
+    e.preventDefault();
     moveRight = true;
-    moveLeft = false; // Ensure only one direction is active
+    moveLeft = false;
 });
 
 rightButton.addEventListener('touchend', (e) => {
@@ -365,14 +375,12 @@ rightButton.addEventListener('touchend', (e) => {
     moveRight = false;
 });
 
-rightButton.addEventListener('touchcancel', (e) => { // Handle cases where touch might be interrupted
+rightButton.addEventListener('touchcancel', (e) => {
     if (gameOver) return;
     e.preventDefault();
     moveRight = false;
 });
 
-
-// Button event listeners (unchanged)
 submitScoreBtn.addEventListener('click', () => {
     const playerName = playerNameInput.value.trim();
     if (playerName) {
@@ -387,5 +395,5 @@ restartGameBtn.addEventListener('click', initGame);
 // --- Initialize Game on Load ---
 window.onload = () => {
     initGame();
-    fetchHighScores();
+    fetchHighScores(); // Fetch high scores initially even before game starts
 };
