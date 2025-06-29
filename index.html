@@ -10,11 +10,12 @@
 <body>
     <div class="game-container">
         <h1>DODGE THE CARS!</h1>
-        <canvas id="gameCanvas" width="500" height="600"></canvas>
-
         <div class="game-info">
             <div class="score-display">
                 Score: <span id="scoreValue">0</span>
+            </div>
+            <div class="level-display">
+                Level: <span id="levelValue">1</span>
             </div>
             <div class="high-scores-container">
                 <h2>High Scores</h2>
@@ -23,6 +24,8 @@
                 </ul>
             </div>
         </div>
+
+        <canvas id="gameCanvas" width="500" height="600"></canvas>
 
         <div class="mobile-controls">
             <button id="leftButton" class="control-button">&larr; Left</button>
