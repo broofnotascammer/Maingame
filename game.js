@@ -1,10 +1,9 @@
 // --- Configuration & Constants ---
-// *** IMPORTANT: Replace 'YOUR_DODGE_CARS_BACKEND_RENDER_URL_HERE' with your actual Render backend URL! ***
-const SERVER_URL = 'https://cardodge.onrender.com'; // <<< Make sure this is YOUR backend URL
+const SERVER_URL = 'https://cardodge.onrender.com'; // Your specific Render backend URL
 const API_URL = `${SERVER_URL}/api/highscores`;
 
 // Get DOM elements
-const gameContainer = document.querySelector('.game-container'); // Get reference to the main container
+const gameContainer = document.querySelector('.game-container');
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('scoreValue');
@@ -16,8 +15,7 @@ const submitScoreBtn = document.getElementById('submitScoreBtn');
 const restartGameBtn = document.getElementById('restartGameBtn');
 const leftButton = document.getElementById('leftButton');
 const rightButton = document.getElementById('rightButton');
-const levelDisplay = document.getElementById('levelValue');
-
+const levelDisplay = document.getElementById('levelValue'); // This will now show a continuous "stage"
 
 // Game object dimensions
 const PLAYER_WIDTH = 50;
@@ -38,32 +36,17 @@ let score = 0;
 let gameOver = false;
 let frame = 0;
 
-// Level-related variables
-let currentLevelIndex = 0; // Starts at the first level in the array
-let carSpeed = 0; // Will be set by current level
-let carSpawnRate = 0; // Will be set by current level
-
-// Define your levels here: scoreThreshold determines when to advance to the NEXT level.
-// Ensure levels are sorted by scoreThreshold.
-const levels = [
-    { level: 1, scoreThreshold: 0, carSpeed: 5, carSpawnRate: 90 }, // Initial settings
-    { level: 2, scoreThreshold: 500, carSpeed: 6.5, carSpawnRate: 80 },
-    { level: 3, scoreThreshold: 1500, carSpeed: 8, carSpawnRate: 70 },
-    { level: 4, scoreThreshold: 3000, carSpeed: 9.5, carSpawnRate: 60 },
-    { level: 5, scoreThreshold: 5000, carSpeed: 11, carSpawnRate: 50 },
-    { level: 6, scoreThreshold: 7500, carSpeed: 12.5, carSpawnRate: 40 },
-    { level: 7, scoreThreshold: 10000, carSpeed: 14, carSpawnRate: 30 },
-    { level: 8, scoreThreshold: 13000, carSpeed: 15.5, carSpawnRate: 25 },
-    { level: 9, scoreThreshold: 17000, carSpeed: 17, carSpawnRate: 20 },
-    { level: 10, scoreThreshold: 22000, carSpeed: 18.5, carSpawnRate: 15 },
-    { level: "MAX", scoreThreshold: Infinity, carSpeed: 20, carSpawnRate: 10 } // Final max difficulty
-];
+// Difficulty related variables (replaces discrete levels)
+let carSpeed;       // Initialized in initGame()
+let carSpawnRate;   // Initialized in initGame()
+let difficultyStage; // Represents the current "level" based on continuous progression
+let lastDifficultyScoreThreshold; // Tracks when last difficulty increase occurred
 
 let moveLeft = false;
 let moveRight = false;
 
 
-// --- Socket.IO Setup (unchanged) ---
+// --- Socket.IO Setup ---
 const socket = io(SERVER_URL);
 let otherPlayers = {};
 
@@ -107,7 +90,7 @@ socket.on('highScoresUpdated', (updatedScores) => {
     displayHighScores(updatedScores);
 });
 
-// --- High Score API Interaction (unchanged) ---
+// --- High Score API Interaction ---
 async function fetchHighScores() {
     try {
         const response = await fetch(API_URL);
@@ -169,12 +152,14 @@ function initGame() {
     gameOver = false;
     frame = 0;
 
-    // Reset and apply initial level settings
-    currentLevelIndex = 0;
-    applyLevelSettings(levels[currentLevelIndex]);
+    // Set initial difficulty settings
+    carSpeed = 5;       // Starting car speed
+    carSpawnRate = 90;  // Starting car spawn rate (higher number = less frequent)
+    difficultyStage = 1; // Start at "Level 1"
+    lastDifficultyScoreThreshold = 0; // Difficulty increases from score 0
 
     scoreDisplay.textContent = score;
-    // levelDisplay.textContent is updated by applyLevelSettings
+    levelDisplay.textContent = difficultyStage; // Update initial level display
 
     gameOverScreen.classList.remove('active');
     playerNameInput.value = '';
@@ -182,18 +167,10 @@ function initGame() {
     moveLeft = false;
     moveRight = false;
 
-    // --- NEW: Activate Focus Mode when game starts ---
+    // Activate Focus Mode when game starts (hides title and high scores)
     gameContainer.classList.add('focus-mode');
 
     requestAnimationFrame(gameLoop);
-}
-
-// Function to apply settings from a given level object
-function applyLevelSettings(levelObj) {
-    carSpeed = levelObj.carSpeed;
-    carSpawnRate = levelObj.carSpawnRate;
-    levelDisplay.textContent = levelObj.level; // Update the displayed level
-    console.log(`Advancing to Level ${levelObj.level}! Speed: ${carSpeed}, Spawn Rate: ${carSpawnRate}`);
 }
 
 
@@ -217,14 +194,25 @@ function gameLoop() {
     checkCollisions();
 
     scoreDisplay.textContent = score;
+    levelDisplay.textContent = difficultyStage; // Always update level display (even if no change)
 
     frame++;
 
-    // Level progression logic based on score
-    if (currentLevelIndex + 1 < levels.length && score >= levels[currentLevelIndex + 1].scoreThreshold) {
-        currentLevelIndex++; // Move to the next level
-        applyLevelSettings(levels[currentLevelIndex]); // Apply its settings
+    // --- Continuous Difficulty Progression Logic ---
+    // Increase difficulty every 500 points (you can adjust this '500')
+    const difficultyIncreaseInterval = 500;
+    if (score >= lastDifficultyScoreThreshold + difficultyIncreaseInterval) {
+        // Increase speed (e.g., by 0.5)
+        carSpeed += 0.5;
+        // Decrease spawn rate (make cars spawn more frequently, e.g., by 5)
+        if (carSpawnRate > 15) { // Ensure spawn rate doesn't go below a reasonable minimum
+            carSpawnRate -= 5;
+        }
+        difficultyStage++; // Increment the visual "level"
+        lastDifficultyScoreThreshold = score; // Update the threshold for the next increase
+        console.log(`Difficulty increased! Stage: ${difficultyStage}, Speed: ${carSpeed}, Spawn Rate: ${carSpawnRate}`);
     }
+
 
     if (moveLeft) {
         player.x = Math.max(0, player.x - player.speed * 5);
@@ -283,12 +271,12 @@ function updateCars() {
         if (cars[i].y > canvas.height) {
             cars.splice(i, 1);
             i--;
-            score += 10;
+            score += 10; // Player gets 10 points for each car dodged
         }
     }
 
     if (frame % carSpawnRate === 0) {
-        const lane = Math.floor(Math.random() * 3);
+        const lane = Math.floor(Math.random() * 2);
         const x = lane * LANE_WIDTH + (LANE_WIDTH / 2) - (CAR_WIDTH / 2);
         const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
         const newCar = {
@@ -297,103 +285,4 @@ function updateCars() {
             y: -CAR_HEIGHT,
             color: randomColor
         };
-        cars.push(newCar);
-        socket.emit('carSpawned', newCar);
-    }
-}
-
-function checkCollisions() {
-    for (let i = 0; i < cars.length; i++) {
-        const car = cars[i];
-        if (player.x < car.x + CAR_WIDTH &&
-            player.x + PLAYER_WIDTH > car.x &&
-            player.y < car.y + CAR_HEIGHT &&
-            player.y + PLAYER_HEIGHT > car.y) {
-            endGame();
-            break;
-        }
-    }
-}
-
-function endGame() {
-    gameOver = true;
-    finalScoreDisplay.textContent = score;
-    gameOverScreen.classList.add('active');
-
-    // --- NEW: Deactivate Focus Mode when game ends ---
-    gameContainer.classList.remove('focus-mode');
-
-    console.log("Game Over! Final Score:", score);
-}
-
-// --- Event Listeners (Keyboard & Mobile Button Controls - unchanged) ---
-document.addEventListener('keydown', (e) => {
-    if (gameOver) return;
-    let moved = false;
-    if (e.key === 'ArrowLeft') {
-        player.x = Math.max(0, player.x - player.speed * 10);
-        moved = true;
-    } else if (e.key === 'ArrowRight') {
-        player.x = Math.min(canvas.width - PLAYER_WIDTH, player.x + player.speed * 10);
-        moved = true;
-    }
-
-    if (moved) {
-        socket.emit('playerMoved', { x: player.x, y: player.y });
-    }
-});
-
-leftButton.addEventListener('touchstart', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    moveLeft = true;
-    moveRight = false;
-});
-
-leftButton.addEventListener('touchend', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    moveLeft = false;
-});
-
-leftButton.addEventListener('touchcancel', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    moveLeft = false;
-});
-
-rightButton.addEventListener('touchstart', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    moveRight = true;
-    moveLeft = false;
-});
-
-rightButton.addEventListener('touchend', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    moveRight = false;
-});
-
-rightButton.addEventListener('touchcancel', (e) => {
-    if (gameOver) return;
-    e.preventDefault();
-    moveRight = false;
-});
-
-submitScoreBtn.addEventListener('click', () => {
-    const playerName = playerNameInput.value.trim();
-    if (playerName) {
-        submitHighScore(playerName, score);
-    } else {
-        alert('Please enter your name!');
-    }
-});
-
-restartGameBtn.addEventListener('click', initGame);
-
-// --- Initialize Game on Load ---
-window.onload = () => {
-    initGame();
-    fetchHighScores(); // Fetch high scores initially even before game starts
-};
+        cars.push(newCar
