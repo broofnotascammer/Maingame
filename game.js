@@ -276,7 +276,8 @@ function updateCars() {
     }
 
     if (frame % carSpawnRate === 0) {
-        const lane = Math.floor(Math.random() * 2);
+        // Original: const lane = Math.floor(Math.random() * 2); // This creates only 2 lanes (0 or 1)
+        const lane = Math.floor(Math.random() * 3); // Corrected to create 3 lanes (0, 1, or 2)
         const x = lane * LANE_WIDTH + (LANE_WIDTH / 2) - (CAR_WIDTH / 2);
         const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
         const newCar = {
@@ -285,4 +286,103 @@ function updateCars() {
             y: -CAR_HEIGHT,
             color: randomColor
         };
-        cars.push(newCar
+        cars.push(newCar);
+        socket.emit('carSpawned', newCar);
+    }
+}
+
+function checkCollisions() {
+    for (let i = 0; i < cars.length; i++) {
+        const car = cars[i];
+        if (player.x < car.x + CAR_WIDTH &&
+            player.x + PLAYER_WIDTH > car.x &&
+            player.y < car.y + CAR_HEIGHT &&
+            player.y + PLAYER_HEIGHT > car.y) {
+            endGame();
+            break;
+        }
+    }
+}
+
+function endGame() {
+    gameOver = true;
+    finalScoreDisplay.textContent = score;
+    gameOverScreen.classList.add('active');
+
+    // Deactivate Focus Mode when game ends (shows title and high scores)
+    gameContainer.classList.remove('focus-mode');
+
+    console.log("Game Over! Final Score:", score);
+}
+
+// --- Event Listeners (Keyboard & Mobile Button Controls) ---
+document.addEventListener('keydown', (e) => {
+    if (gameOver) return;
+    let moved = false;
+    if (e.key === 'ArrowLeft') {
+        player.x = Math.max(0, player.x - player.speed * 10);
+        moved = true;
+    } else if (e.key === 'ArrowRight') {
+        player.x = Math.min(canvas.width - PLAYER_WIDTH, player.x + player.speed * 10);
+        moved = true;
+    }
+
+    if (moved) {
+        socket.emit('playerMoved', { x: player.x, y: player.y });
+    }
+});
+
+leftButton.addEventListener('touchstart', (e) => {
+    if (gameOver) return;
+    e.preventDefault();
+    moveLeft = true;
+    moveRight = false;
+});
+
+leftButton.addEventListener('touchend', (e) => {
+    if (gameOver) return;
+    e.preventDefault();
+    moveLeft = false;
+});
+
+leftButton.addEventListener('touchcancel', (e) => {
+    if (gameOver) return;
+    e.preventDefault();
+    moveLeft = false;
+});
+
+rightButton.addEventListener('touchstart', (e) => {
+    if (gameOver) return;
+    e.preventDefault();
+    moveRight = true;
+    moveLeft = false;
+});
+
+rightButton.addEventListener('touchend', (e) => {
+    if (gameOver) return;
+    e.preventDefault();
+    moveRight = false;
+});
+
+rightButton.addEventListener('touchcancel', (e) => {
+    if (gameOver) return;
+    e.preventDefault();
+    moveRight = false;
+});
+
+submitScoreBtn.addEventListener('click', () => {
+    const playerName = playerNameInput.value.trim();
+    if (playerName) {
+        submitHighScore(playerName, score);
+    } else {
+        alert('Please enter your name!');
+    }
+});
+
+restartGameBtn.addEventListener('click', initGame);
+
+// --- Initialize Game on Load ---
+window.onload = () => {
+    initGame();
+    fetchHighScores(); // Fetch high scores initially even before game starts
+};
